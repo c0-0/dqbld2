@@ -1,0 +1,257 @@
+</html><!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet">
+<style>
+#app { color: #666; font-family: 'Noto Sans JP', sans-serif; }
+#app * { box-sizing:border-box; border-collapse: collapse; }
+
+#app .list ul { display: flex; flex-wrap: wrap; padding:0; font-size: .9em; list-style-type: none; }
+#app .list li { flex-basis: 20%; cursor: hand; padding: .1em .3em; border-bottom: 1px solid #ddd; }
+#app .list li em { font-style: normal; font-size: .8em }
+#app .list li em.memo { font-family: "Font Awesome 5 Free Regular";  font-size: .4em; position: absolute; }
+#app .list li span { font-family: fontAwesome; }
+
+#app .checkOn { background-color: #eee; color: #999; }
+#app .checkOn span { color: #a8c97f; }
+
+#app .filters li { margin: .3em auto; position : relative;  }
+#app .filters input[type="text"] { padding: .2em; }
+
+#app .filters input[type="radio"], #app .filters input[type="checkbox"]{ display:none; }
+
+#app .selDisp { }
+#app .selDisp+label { display: inline-block; position:relative; height: 1.5em; width: 3em; border-radius: 1em; background-color: #EEE; cursor: hand; user-select: none;}
+#app .selDisp+label:before { content:''; display: inline-block; position:relative; top: .25rem; left: .25em; height: 1em; width: 1em; border-radius: 1em; background-color: #FFF; transition: 0.2s;}
+
+#app input[type="checkbox"]:checked.selDisp+label{ background-color: #e0ebaf; }
+#app input[type="checkbox"]:checked.selDisp+label:before { left: 1.75em; }
+
+#app .selDLC label { border: 1px solid #ccc; border-radius: .2em; margin: auto .3em; padding: .2em; width: 4em; display: inline-block; text-align :center; user-select: none;}
+#app .selDLC input:checked+label { background-color: #e0ebaf; border-color: #c7dc68;  }
+
+[v-cloak] { display: none;}
+</style>
+</head>
+<body>
+めも：
+<pre>
+ジャンル表記（料理だとか建材だとか
+カタログ表示
+  コンポーネントかなんかで別だな
+  よこ15個のしかくを並べてツールチップかな
+</pre>
+
+<div id="app">
+
+<div class="filters"><ul>
+<li>チェック済みを非表示：
+   <input type="checkbox" id="disp" v-model="DispCheck" class="selDisp"><label for="disp"></label>
+  </li>
+<li class="selDLC">対象外にするDLC：<template v-for="(dlc,idx) in DLCList">
+  <input type="checkbox" :id="'dlc'+idx" :value="dlc" v-model="DLCDisp"><label :for="'dlc'+idx" >{{dlc}}</label>
+  </template></li>
+<li>文字フィルタ：<input type="text" v-model.trim="FilterWrd"></li>
+<li><input type="button" @click="ResetValues()" value="リセット"></li>
+<li><input type="button" @click="PublishURL()" value="URL発行"> </li>
+<ul></div>
+
+<div v-cloak class="list"><ul>
+  <template v-for="(rcp,no) in DispItemChk" :key="rcp.id" >
+  <li v-show="checkDisp(rcp.id)" :class="{checkOn:ItemChk[rcp.id-1]}" @click="showOnOff(rcp.id)" :title="rcp.memo">
+      <span v-show="ItemChk[rcp.id-1]">&#xf058;</span><span v-show="!ItemChk[rcp.id-1]">&#xf111</span>
+      {{no+1}}:{{rcp.name}}
+      <em v-show="rcp.flg!=''">({{rcp.flg}})</em>
+      <em v-show="rcp.memo!=''" class="memo">&#xf27a;</em>
+  </li>
+  </template>
+</div>
+
+</div><!-- /app -->
+<script src="https://kit.fontawesome.com/99ec9de659.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/vue@3.2.11/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/axios@0.20.0-0/dist/axios.min.js"></script>
+<script src="https://unpkg.com/lz-string@1.4.4/libs/lz-string.min.js"></script>
+<script>
+const StorageKey = 'eprBld2';
+const mappingList ='xK.re(nSBw~JplvNEuLMg!DZm/k^tcXRdUYfIPhOFAyHjQzab:o)TV_sW+i-GCq=';
+const escList='!./:+_-()^~=';
+
+const app = Vue.createApp({
+  data() { return{
+    ItemChk:[]
+   ,ItemRecipe:[]
+   ,DispCheck: false
+   ,FilterWrd: ''
+   ,DLCList : []
+   ,DLCDisp : []
+  }}
+
+//――――――――――――――――――――――――――――――
+ ,computed :{
+
+    //表示用配列
+    DispItemChk: function(){
+      let ret=this.ItemRecipe;
+
+      //DLC表示可否
+      ret = ret.filter(l=>this.DLCDisp.indexOf(l.flg)==-1);
+
+      //文字フィルタ
+      if(this.FilterWrd != ''){
+        ret = ret.filter(l=> {
+          return (l.name).replace(/,|\(\d+\)/g,'').indexOf(this.FilterWrd) > -1;
+        })
+      }
+
+      return ret;
+    }
+  }//computed
+
+//――――――――――――――――――――――――――――――
+ ,methods: {
+    //オンオフすいっち
+    showOnOff: function(id){ this.ItemChk[id-1] = !this.ItemChk[id-1]; }
+
+    //リセットボタン
+   ,ResetValues: function(){
+      this.ItemChk = this.ItemRecipe.map(l=>l=false);
+      this.DispCheck=false;
+      this.FilterWrd='';
+    }
+
+    //表示するかしないか
+   ,checkDisp: function(id){
+      if( (this.DispCheck===true && this.ItemChk[id-1]==false)
+          || this.DispCheck===false ) {
+        return true;
+      }
+      return false
+    }
+
+    //URL発行
+   ,PublishURL: function(){
+
+      //01にする
+      const str = this.ItemChk.map(l=> l ? 1 : 0 ).join('');
+      let ret ='';
+
+      //6ビットずつマップリストの値に置換する
+      for(let i=0; i<str.length; i+=6) ret += mappingList[parseInt(str.substr(i,6).padEnd(6,'1'),2)];
+      //3文字以上並んでたらちぢめる
+      let maps='';
+      while(ret.length!=0){
+        let s = ret.charAt(0);
+        maps+=s;
+        const esc = ( ~escList.indexOf(s) ) ? '\\' : '';
+        const reg = new RegExp('^'+esc+s+'{3,}');
+        if(ret.match(reg)){
+          s = ret.match(reg)[0];
+          maps+=s.length;
+        }
+        ret = ret.slice(s.length);
+      }
+      //べんりツールでURL文字に
+      maps = LZString.compressToEncodedURIComponent(maps);
+
+      navigator.clipboard.writeText(location.href.match(/^.+?\.html/) + '?' + maps).then(e => {
+        alert('クリップボードにコピーしました');
+      });
+  
+    }
+
+ }//methods
+
+
+  //――――――――――――――――――――――――――――――
+  ,watch:{ //監視して保存
+    ItemChk:{
+      handler: function(ItemChk) {
+        localStorage.setItem(StorageKey,JSON.stringify(ItemChk))
+      }
+    , deep: true
+    }
+  }//watch
+
+//――――――――――――――――――――――――――――――
+ ,created: function () { 
+    const self = this;
+
+    const jsonPath = './';
+    const filepre  = 'bld2';
+    const ext      = '.json'
+    const getFile = ['ItemList'].map(l=>jsonPath+filepre+l+ext);
+
+    Promise.all(
+      [axios.get(getFile[0])]
+    )
+   .then(resData => {
+
+      self.ItemRecipe=resData[0].data;
+
+      //DLCリスト
+      self.DLCList=[...new Set(resData[0].data.filter(l=>l.flg!='').map(l=>l.flg))].sort();
+
+      //チェック配列
+      let query = decodeURIComponent(location.search.slice(1));
+      const list  = localStorage.getItem(StorageKey);
+
+      //クエリがあればそれをつかう
+      if(query){
+        let ret='';
+        query = LZString.decompressFromEncodedURIComponent(query);
+        while(query.length!=0){
+          const s = query.charAt(0);
+          ret += s; //1文字目
+          //2文字目が数字の場合、数の分埋める
+          let n = query.charAt(1);
+          if(! isNaN(parseInt(n)) ){
+            n = parseInt(query.match(/\d+/)[0]);
+            ret += s.padEnd(n-1,s);
+            n=String(n).length + 1; //いつかなおす（きもちわるい
+          }else{
+            n=1;
+          }
+          query = query.slice(n);
+        }
+        //もどす
+        ret = [...ret].map(l=>mappingList.indexOf(l).toString(2).padStart(6,'0')).join('');
+        self.ItemChk = [...ret].map(l=> (l==0) ? false : true);
+
+      //ストレージがあればそっち
+      }else if(list){
+        self.ItemChk = JSON.parse(list)
+
+      //なければ初期値
+      }else{
+        self.ItemChk = self.ItemRecipe.map(l=>l=false);
+      }
+
+      //lengthちがったら足したり引いたり
+      const diff = self.ItemRecipe.length - self.ItemChk.length;
+      if ( diff > 0 ){  //すくない
+        self.ItemChk = self.ItemChk.concat(Array(diff).fill(false))
+      }else if( diff < 0 ){ //おおい
+        self.ItemChk = self.ItemChk.slice(0,self.ItemRecipe.length)
+      }
+
+    })
+   .catch(e => {
+      // エラー発生
+      console.log(e)
+    })
+   .finally(() => {
+      // 最終的な処理
+      //console.log('hoge')
+    })
+
+  }
+});
+const vm = app.mount('#app');
+//localStorage.removeItem('eprBld2');
+</script>
+</body>
+</html>
