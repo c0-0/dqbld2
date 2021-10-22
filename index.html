@@ -1,4 +1,4 @@
-</html><!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP&display=swap" rel="stylesheet">
 <style>
 html { -webkit-text-size-adjust: 100%; }
+body { margin: .5vw; }
 #app { color: #666; font-family: 'Noto Sans JP', sans-serif; }
 #app * { box-sizing:border-box; border-collapse: collapse; }
 
@@ -15,13 +16,12 @@ html { -webkit-text-size-adjust: 100%; }
 #app .list li { flex-basis: 20%; cursor: hand; padding: .1em .3em; border-bottom: 1px solid #ddd; }
 #app .list li div { display: inline; }
 #app .list li em { font-style: normal; font-size: .8em }
-#app .list li em.memo { font-family: "Font Awesome 5 Free Regular";  font-size: .4em; position: absolute; }
+#app .list li em.memo { font-family: 'Font Awesome 5 Free'; font-weight: 400; font-size: .4em; position: absolute; }
 #app .list li span { font-family: fontAwesome; }
 
-#app .list li.ctlg { flex-basis: 6.25vw; height: 6.25vw; margin: .1em; border: 2px solid #AAA; border-radius: .5em; line-height: 1; }
+#app .list li.ctlg { flex-basis: 6.25vw; max-width: 6.25vw; height: 6.25vw; margin: .05vw; border: 2px solid #AAA; border-radius: .5em; line-height: 1; overflow: hidden; }
 #app .list li.ctlg div { font-size: 1vw; }
-
-#app .list li.pages { flex-basis: 100vw; }
+#app .list li.pages { margin-top: .5em; flex-basis: 100vw; }
 
 #app .checkOn { background-color: #eee; color: #999; }
 #app .checkOn span { color: #a8c97f; }
@@ -63,8 +63,7 @@ html { -webkit-text-size-adjust: 100%; }
    <input type="checkbox" id="disp2" v-model="Catalog" class="selDisp"><label for="disp2"></label>
   </li>
 <li>文字フィルタ：<input type="text" v-model.trim="FilterWrd"></li>
-<li><input type="button" @click="ResetValues()" value="リセット"></li>
-<li><input type="button" @click="PublishURL()" value="URL発行"> </li>
+<li><input type="button" @click="ResetValues()" value="リセット"> <input type="button" @click="PublishURL()" value="URL発行"></li>
 <ul></div>
 
 <div v-cloak class="list"><ul>
@@ -123,7 +122,8 @@ const app = Vue.createApp({
 
    ,ResetValues: function(){
       this.ItemChk = this.ItemRecipe.map(l=>l=false);
-      this.DispCheck=false;
+      //this.DispCheck=false;
+      //this.Catalog=false;
       this.FilterWrd='';
     }
 
@@ -136,16 +136,19 @@ const app = Vue.createApp({
     }
 
    ,PublishURL: function(){
+      navigator.clipboard.writeText(location.href + '?' + this.makeHash()).then(e => {
+        alert('クリップボードにコピーしました');
+      });
+    }
 
-      //01にする
+   ,makeHash: function(){
       const str = this.ItemChk.map(l=> l ? 1 : 0 ).join('');
       let ret ='';
 
       //6ビットずつマップリストの値に置換する
       for(let i=0; i<str.length; i+=6) ret += mappingList[parseInt(str.substr(i,6).padEnd(6,'1'),2)];
-      //3文字以上並んでたらちぢめる
       let maps='';
-      while(ret.length!=0){
+      while(ret.length!=0){ //3文字以上並んでたらちぢめる
         let s = ret.charAt(0);
         maps+=s;
         const esc = ( ~escList.indexOf(s) ) ? '\\' : '';
@@ -156,14 +159,8 @@ const app = Vue.createApp({
         }
         ret = ret.slice(s.length);
       }
-      //べんりツールでURL文字に
-      maps = LZString.compressToEncodedURIComponent(maps);
-
-      navigator.clipboard.writeText(location.href.match(/^.+?\.html/) + '?' + maps).then(e => {
-        alert('クリップボードにコピーしました');
-      });
-  
-    }
+      return LZString.compressToEncodedURIComponent(maps);
+   }
 
  }//methods
 
@@ -172,7 +169,7 @@ const app = Vue.createApp({
   ,watch:{
     ItemChk:{
       handler: function(ItemChk) {
-        localStorage.setItem(StorageKey,JSON.stringify(ItemChk))
+        localStorage.setItem(StorageKey,this.makeHash())
       }
     , deep: true
     }
@@ -181,6 +178,32 @@ const app = Vue.createApp({
 //――――――――――――――――――――――――――――――
  ,created: function () { 
     const self = this;
+
+    const decompQuery = function(query){
+      let ret='';
+      query = LZString.decompressFromEncodedURIComponent(query);
+
+      while(query.length!=0){
+        const s = query.charAt(0); ret += s;
+        let n = query.charAt(1);
+        if(! isNaN(parseInt(n)) ){
+          n = parseInt(query.match(/\d+/)[0]);
+          ret += s.padEnd(n-1,s);
+          n=String(n).length + 1; //いつかなおす（きもちわるい
+        }else{
+          n=1;
+        }
+        query = query.slice(n);
+      }
+      ret = [...ret].map(l=>mappingList.indexOf(l).toString(2).padStart(6,'0')).join('');
+      return [...ret].map(l=> (l==0) ? false : true);
+    }
+
+    let query = decodeURIComponent(location.search.slice(1));
+    if(query){
+      self.ItemChk = decompQuery(query);
+      location.replace(location.href.match(/^.+?\.html/))
+    }
 
     const jsonPath = './';
     const filepre  = 'bld2';
@@ -197,36 +220,10 @@ const app = Vue.createApp({
       self.DLCList=[...new Set(resData[0].data.filter(l=>l.flg!='').map(l=>l.flg))].sort();
 
       //チェック配列
-      let query = decodeURIComponent(location.search.slice(1));
       const list  = localStorage.getItem(StorageKey);
-
-      //クエリがあればそれをつかう
-      if(query){
-        let ret='';
-        query = LZString.decompressFromEncodedURIComponent(query);
-        while(query.length!=0){
-          const s = query.charAt(0);
-          ret += s; //1文字目
-          //2文字目が数字の場合、数の分埋める
-          let n = query.charAt(1);
-          if(! isNaN(parseInt(n)) ){
-            n = parseInt(query.match(/\d+/)[0]);
-            ret += s.padEnd(n-1,s);
-            n=String(n).length + 1; //いつかなおす（きもちわるい
-          }else{
-            n=1;
-          }
-          query = query.slice(n);
-        }
-        //もどす
-        ret = [...ret].map(l=>mappingList.indexOf(l).toString(2).padStart(6,'0')).join('');
-        self.ItemChk = [...ret].map(l=> (l==0) ? false : true);
-
-        location.replace(location.href.match(/^.+?\.html/));
-
-      //ストレージがあればそっち
-      }else if(list){
-        self.ItemChk = JSON.parse(list)
+      //ストレージがあれば
+      if(list){
+        self.ItemChk = decompQuery(list);
 
       //なければ初期値
       }else{
