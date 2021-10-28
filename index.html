@@ -23,6 +23,12 @@ body { margin: .5vw; }
 #app .list li.ctlg div { font-size: 1vw; }
 #app .list li.pages { margin-top: .5em; flex-basis: 100vw; }
 
+@media screen and (max-width:990px) { 
+#app .list ul { width: 980px; }
+#app .list li.ctlg {  flex-basis: 6.25%;  height: 63px;  max-width: 63px;}
+#app .list li.pages { margin-top: .5em; flex-basis: 980px; }
+}
+
 #app .checkOn { background-color: #eee; color: #999; }
 #app .checkOn span { color: #a8c97f; }
 
@@ -51,6 +57,7 @@ body { margin: .5vw; }
 ジャンル表記（料理だとか建材だとか
 ぼたんのCSS
 カタログよこはば
+初期カタログだけボタン？
 </pre>
 
 <div id="app">
