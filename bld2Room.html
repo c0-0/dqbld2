@@ -8,6 +8,7 @@
 #app * { box-sizing:border-box; border-collapse: collapse; }
 
 #app .filters { line-height: 1;}
+#app .filters li { margin-bottom: .5em;}
 
 #app .selDisp { display:none; }
 #app .selDisp+label { display: inline-block; position:relative; height: 1.5em; width: 3em; border-radius: 1em; background-color: #EEE; cursor: pointer; user-select: none;}
@@ -15,32 +16,36 @@
 #app input[type="checkbox"]:checked.selDisp+label{ background-color: #e0ebaf; }
 #app input[type="checkbox"]:checked.selDisp+label:before { left: 1.75em; }
 
-#app #lists { margin:0; display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px dotted #ccc;}
-#app #lists dt, #app #lists dd { margin:0; padding: .25em; }
-#app #lists dd.mtr1 { grid-column: 2 }
-#app #lists dd.mtr2 { grid-column: 3 }
-#app #lists dd.mtr3 { grid-column: 4 }
-#app #lists dd.mtr4 { grid-column: 5 }
-#app #lists dd.mtr5 { grid-column: 6 }
-#app #lists dd.mtr6 { grid-column: 7 }
-
-#app #lists dd ul { margin:0; padding:0; list-style-type: none; }
+#app .lists { margin:0; display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px dotted #ccc;}
+#app .lists dt, #app #lists dd { margin:0; padding: .25em; }
+#app .lists dd.mtr1 { grid-column: 2 }
+#app .lists dd.mtr2 { grid-column: 3 }
+#app .lists dd.mtr3 { grid-column: 4 }
+#app .lists dd.mtr4 { grid-column: 5 }
+#app .lists dd.mtr5 { grid-column: 6 }
+#app .lists dd.mtr6 { grid-column: 7 }
+#app .lists dd ul { margin:0; padding:0; list-style-type: none; }
 #app .checkOn { background-color: #EFEFEF; }
 
 </style>
 </head>
 <body>
 <div id="app">
-<p>クリックでオンオフ</p>
+<p>行クリックでオンオフ</p>
 
 <div class="filters"><ul>
 <li>チェック済みを非表示：
-   <input type="checkbox" id="disp" v-model="DispCheck" class="selDisp"><label for="disp"></label>
+   <input type="checkbox" id="disp" v-model="dispCheck" class="selDisp"><label for="disp"></label>
   </li>
-<li><button @click="listCheck=resetCheck()">リセット</button>
+<li>部屋名フィルタ：<input type="text" @input="bindFilter"></li>
+<li><button @click="resetAll()">リセット</button>
 </ul></div>
 
-<dl v-for="n in dispLists" id="lists" :key="n.id" @click="setOnOff(n.id)" :class="{checkOn: checkOnOff(n.id)}">
+<dl class="lists header" >
+<dt>部屋名</dt><dd v-for="i in 6" :class="'mtr'+i">素材{{i}}</dd>
+</dl>
+
+<dl v-for="n in dispLists" class="lists" :key="n.id" @click="setOnOff(n.id)" :class="{checkOn: checkOnOff(n.id)}">
   <dt>{{n.name}}</dt>
     <dd v-for="l in n.list" :class="'mtr'+l.mid" :key="l.mid"><ul>
       <li v-for="i in l.mtr">{{i.m}}:{{i.c}}</li>
@@ -57,18 +62,20 @@ const StorageKey = 'eprBld2Room2';
 const app = Vue.createApp({
   data() { return{
     roomRecipes:[]
+   ,filterWrd  : ''
    ,listCheck  :[]
-   ,DispCheck  : false
+   ,dispCheck  : false
   
   }}
 
 //――――――――――――――――――――――――――――――
  ,computed :{
     dispLists: function(){
-      const self = this;
-      const ret = self.roomRecipes;
+      const ret = (this.filterWrd!='' ) ?
+                     this.roomRecipes.filter(l=> { return (l.name).indexOf(this.filterWrd) > -1 })
+                   : this.roomRecipes;
 
-      return (self.DispCheck) ? ret.filter(l=> !self.listCheck.find(c=>c.id==l.id).val) : ret;
+      return (this.dispCheck) ? ret.filter(l=> !this.listCheck.find(c=>c.id==l.id).val) : ret;
     }
 
 
@@ -83,8 +90,16 @@ const app = Vue.createApp({
    ,checkOnOff: function(i){
       return this.listCheck.find(l=>l.id==i).val
    }
+   ,bindFilter: function(t){
+      this.filterWrd = (!!t.data) ? String(t.data).trim() : '';
+   }
    ,resetCheck: function(){
       return Array(this.roomRecipes.length).fill().map((l,idx)=>{ return{"id":idx+1, "val":false} });
+   }
+   ,resetAll: function(){
+      this.listCheck=this.resetCheck();
+      this.filterWrd='';
+      this.dispCheck=false;
    }
  }//methods
 
@@ -119,10 +134,11 @@ const app = Vue.createApp({
       self.listCheck= (list) ? JSON.parse(list) : self.resetCheck();
 
       self.roomRecipes = self.roomRecipes.map(l=>{
+      
         //名前の追加
         l.name=roomNames.find(n=>n.id==l.id).name;
 
-        //そざいの置換
+        //家具名の置換
         l.list.forEach(ms=>{
           ms.mtr.forEach(m=>{ m.m = frntrList.find(f=>f.id==m.m).name });
         });
