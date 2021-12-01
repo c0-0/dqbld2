@@ -31,11 +31,13 @@
 </head>
 <body>
 <div id="app">
+<p>クリックでオンオフ</p>
 
 <div class="filters"><ul>
 <li>チェック済みを非表示：
    <input type="checkbox" id="disp" v-model="DispCheck" class="selDisp"><label for="disp"></label>
   </li>
+<li><button @click="listCheck=resetCheck()">リセット</button>
 </ul></div>
 
 <dl v-for="n in dispLists" id="lists" :key="n.id" @click="setOnOff(n.id)" :class="{checkOn: checkOnOff(n.id)}">
@@ -64,11 +66,9 @@ const app = Vue.createApp({
  ,computed :{
     dispLists: function(){
       const self = this;
-      let ret = self.roomRecipes;
+      const ret = self.roomRecipes;
 
-//      if (self.DispCheck) { ret = ret.filter(l=> !self.listCheck.find(c=>c.id==l.id).val) };
-
-      return (self.DispCheck) ? ret.filter(l=> !self.listCheck.find(c=>c.id==l.id).val) : ret;;
+      return (self.DispCheck) ? ret.filter(l=> !self.listCheck.find(c=>c.id==l.id).val) : ret;
     }
 
 
@@ -102,7 +102,7 @@ const app = Vue.createApp({
 //――――――――――――――――――――――――――――――
  ,created: function () { 
     const self = this;
-
+    //const jsonPath='/files/page_files/bld2/';
     const jsonPath = './';
     const filepre  = 'bld2';
     const ext      = '.json'
@@ -114,9 +114,9 @@ const app = Vue.createApp({
       const roomNames=r[1].data;
       const frntrList=r[2].data;
 
+      //チェックりすとよむ
       const list = localStorage.getItem(StorageKey);
-      self.listCheck= (list) ? JSON.parse(list)
-                             : self.resetCheck();
+      self.listCheck= (list) ? JSON.parse(list) : self.resetCheck();
 
       self.roomRecipes = self.roomRecipes.map(l=>{
         //名前の追加
