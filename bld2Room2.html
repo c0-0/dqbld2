@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+[v-cloak] { display: none;}
+#app { color: #666; }
+#app * { box-sizing:border-box; border-collapse: collapse; }
+
+#app .filters { line-height: 1;}
+
+#app .selDisp { display:none; }
+#app .selDisp+label { display: inline-block; position:relative; height: 1.5em; width: 3em; border-radius: 1em; background-color: #EEE; cursor: pointer; user-select: none;}
+#app .selDisp+label:before { content:''; display: inline-block; position:relative; left: .25em; top: .25em; height: 1em; width: 1em; border-radius: 1em; background-color: #FFF; transition: 0.2s;}
+#app input[type="checkbox"]:checked.selDisp+label{ background-color: #e0ebaf; }
+#app input[type="checkbox"]:checked.selDisp+label:before { left: 1.75em; }
+
+#app #lists { margin:0; display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px dotted #ccc;}
+#app #lists dt, #app #lists dd { margin:0; padding: .25em; }
+#app #lists dd.mtr1 { grid-column: 2 }
+#app #lists dd.mtr2 { grid-column: 3 }
+#app #lists dd.mtr3 { grid-column: 4 }
+#app #lists dd.mtr4 { grid-column: 5 }
+#app #lists dd.mtr5 { grid-column: 6 }
+#app #lists dd.mtr6 { grid-column: 7 }
+
+#app #lists dd ul { margin:0; padding:0; list-style-type: none; }
+#app .checkOn { background-color: #EFEFEF; }
+
+</style>
+</head>
+<body>
+<div id="app">
+
+<div class="filters"><ul>
+<li>チェック済みを非表示：
+   <input type="checkbox" id="disp" v-model="DispCheck" class="selDisp"><label for="disp"></label>
+  </li>
+</ul></div>
+
+<dl v-for="n in dispLists" id="lists" :key="n.id" @click="setOnOff(n.id)" :class="{checkOn: checkOnOff(n.id)}">
+  <dt>{{n.name}}</dt>
+    <dd v-for="l in n.list" :class="'mtr'+l.mid" :key="l.mid"><ul>
+      <li v-for="i in l.mtr">{{i.m}}:{{i.c}}</li>
+    </ul></dd>
+</dl>
+
+</div><!-- /app -->
+<script src="https://kit.fontawesome.com/99ec9de659.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/vue@3.2.11/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/axios@0.20.0-0/dist/axios.min.js"></script>
+<script>
+const StorageKey = 'eprBld2Room2';
+
+const app = Vue.createApp({
+  data() { return{
+    roomRecipes:[]
+   ,listCheck  :[]
+   ,DispCheck  : false
+  
+  }}
+
+//――――――――――――――――――――――――――――――
+ ,computed :{
+    dispLists: function(){
+      const self = this;
+      let ret = self.roomRecipes;
+
+//      if (self.DispCheck) { ret = ret.filter(l=> !self.listCheck.find(c=>c.id==l.id).val) };
+
+      return (self.DispCheck) ? ret.filter(l=> !self.listCheck.find(c=>c.id==l.id).val) : ret;;
+    }
+
+
+  }//computed
+
+//――――――――――――――――――――――――――――――
+ ,methods: {
+    setOnOff: function(i){
+      const t = this.listCheck.find(l=>l.id==i);
+      t.val = !t.val;
+    }
+   ,checkOnOff: function(i){
+      return this.listCheck.find(l=>l.id==i).val
+   }
+   ,resetCheck: function(){
+      return Array(this.roomRecipes.length).fill().map((l,idx)=>{ return{"id":idx+1, "val":false} });
+   }
+ }//methods
+
+
+  //――――――――――――――――――――――――――――――
+  ,watch:{ //監視して保存
+    listCheck:{
+      handler: function(listCheck) {
+        localStorage.setItem(StorageKey,JSON.stringify(listCheck))
+      }
+    , deep: true
+    }
+  }//watch
+
+//――――――――――――――――――――――――――――――
+ ,created: function () { 
+    const self = this;
+
+    const jsonPath = './';
+    const filepre  = 'bld2';
+    const ext      = '.json'
+    const getFile = ['RoomRecipe','RoomName','RoomFurniture'].map(l=>axios.get(jsonPath+filepre+l+ext));
+
+    Promise.all(getFile)
+   .then(r => {
+      self.roomRecipes=r[0].data;
+      const roomNames=r[1].data;
+      const frntrList=r[2].data;
+
+      const list = localStorage.getItem(StorageKey);
+      self.listCheck= (list) ? JSON.parse(list)
+                             : self.resetCheck();
+
+      self.roomRecipes = self.roomRecipes.map(l=>{
+        //名前の追加
+        l.name=roomNames.find(n=>n.id==l.id).name;
+
+        //そざいの置換
+        l.list.forEach(ms=>{
+          ms.mtr.forEach(m=>{ m.m = frntrList.find(f=>f.id==m.m).name });
+        });
+
+        return l;
+      });
+
+
+
+    })
+   .catch(e => {
+      // エラー発生
+      console.log(e)
+    })
+   .finally(() => {
+      // 最終的な処理
+      //console.log('hoge')
+    })
+
+  }
+});
+const vm = app.mount('#app');
+//localStorage.removeItem('eprBld2Room');
+</script>
+</body>
+</html>
